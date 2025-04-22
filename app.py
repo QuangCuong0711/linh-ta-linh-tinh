@@ -37,7 +37,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         if not game_state.valid_moves:
             raise ValueError("Không có nước đi hợp lệ")
             
-        selected_move = 
+        selected_move = random.choice(game_state.valid_moves)
 
         return AIResponse(move=selected_move)
     except Exception as e:
