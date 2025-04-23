@@ -459,20 +459,21 @@ class TranspositionTable:
 
 def convert_to_bitboard(board: List[List[int]], current_player: int):
     WIDTH, HEIGHT = 7, 6
+    position = np.uint64(0)
     mask = np.uint64(0)
-    current = np.uint64(0)
     moves = 0
 
-    for col in range(WIDTH):
-        for row in range(HEIGHT):
-            if board[col][row] != 0:
-                bit = col * (HEIGHT + 1) + row
+    # Duyệt theo hàng (từ dưới lên)
+    for row in reversed(range(HEIGHT)):  # Hàng 5 là dưới cùng
+        for col in range(WIDTH):
+            if board[row][col] != 0:  # Truy cập [hàng][cột]
+                bit = col * (HEIGHT + 1) + (HEIGHT - 1 - row)  # Tính bit chính xác
                 mask |= np.uint64(1) << np.uint64(bit)
-                if board[col][row] == current_player:
-                    current |= np.uint64(1) << np.uint64(bit)
+                if board[row][col] == current_player:
+                    position |= np.uint64(1) << np.uint64(bit)
                 moves += 1
 
-    return mask, current, moves
+    return position, mask, moves
 
 def best_move(position: Position, valid_moves: List[int], solver: Solver):
     best_col = None
