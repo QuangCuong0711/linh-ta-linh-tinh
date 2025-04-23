@@ -135,10 +135,10 @@ class Position:
         opponent_win = self.opponent_winning_position()
         forced_moves = possible_mask & opponent_win
         if forced_moves != np.uint64(0):
-            if forced_moves & (forced_moves - np.uint64(1)) != np.uint64(0):
+            if (forced_moves & (forced_moves - np.uint64(1))) != np.uint64(0):
                 return np.uint64(0)
-            else:
-                possible_mask = forced_moves
+            possible_mask = forced_moves
+        
         return possible_mask & ~(opponent_win >> np.uint64(1))
     
     def moveScore(self, move):
@@ -162,10 +162,10 @@ class Position:
         return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
 
     def winning_position(self):
-        return self.compute_winning_position(self.current_position, self.mask)
+        return self.compute_winning_position(np.uint64(self.current_position), np.uint64(self.mask))
 
     def opponent_winning_position(self):
-        return self.compute_winning_position(self.current_position ^ self.mask, self.mask)
+        return self.compute_winning_position(np.uint64(self.current_position ^ self.mask), np.uint64(self.mask))
 
     def possible(self):
         return (self.mask + self.bottom_mask) & self.board_mask
@@ -176,32 +176,30 @@ class Position:
 
     @staticmethod
     def compute_winning_position(position, mask):
+        position = np.uint64(position)
+        mask = np.uint64(mask)
+        one = np.uint64(1)
+        height = np.uint64(Position.HEIGHT)
+        
         # Vertical
-        r = (position << np.uint64(1)) & (position << np.uint64(2)) & (position << np.uint64(3))
+        r = (position << one) & (position << np.uint64(2)) & (position << np.uint64(3))
 
         # Horizontal
-        p = (position << np.uint64(Position.HEIGHT+1)) & (position << np.uint64(2*(Position.HEIGHT+1)))
-        r |= p & (position << np.uint64(3*(Position.HEIGHT+1)))
-        r |= p & (position >> np.uint64(Position.HEIGHT+1))
-        p = (position >> np.uint64(Position.HEIGHT+1)) & (position >> np.uint64(2*(Position.HEIGHT+1)))
-        r |= p & (position << np.uint64(Position.HEIGHT+1))
-        r |= p & (position >> np.uint64(3*(Position.HEIGHT+1)))
-
+        shift = height + one
+        p = (position << shift) & (position << (shift * 2))
+        r |= p & (position << (shift * 3))
+        r |= p & (position >> shift)
+        
         # Diagonal 1 (\)
-        p = (position << np.uint64(Position.HEIGHT)) & (position << np.uint64(2*Position.HEIGHT))
-        r |= p & (position << np.uint64(3*Position.HEIGHT))
-        r |= p & (position >> np.uint64(Position.HEIGHT))
-        p = (position >> np.uint64(Position.HEIGHT)) & (position >> np.uint64(2*Position.HEIGHT))
-        r |= p & (position << np.uint64(Position.HEIGHT))
-        r |= p & (position >> np.uint64(3*Position.HEIGHT))
-
+        p = (position << height) & (position << (height * 2))
+        r |= p & (position << (height * 3))
+        r |= p & (position >> height)
+        
         # Diagonal 2 (/)
-        p = (position << np.uint64(Position.HEIGHT+2)) & (position << np.uint64(2*(Position.HEIGHT+2)))
-        r |= p & (position << np.uint64(3*(Position.HEIGHT+2)))
-        r |= p & (position >> np.uint64(Position.HEIGHT+2))
-        p = (position >> np.uint64(Position.HEIGHT+2)) & (position >> np.uint64(2*(Position.HEIGHT+2)))
-        r |= p & (position << np.uint64(Position.HEIGHT+2))
-        r |= p & (position >> np.uint64(3*(Position.HEIGHT+2)))
+        shift2 = height + np.uint64(2)
+        p = (position << shift2) & (position << (shift2 * 2))
+        r |= p & (position << (shift2 * 3))
+        r |= p & (position >> shift2)
 
         return r & (Position.board_mask ^ mask)
 
@@ -480,9 +478,10 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
             cell = board[ROWS - 1 - row][col]
             if cell != 0:
                 bit = np.uint64(col * (ROWS + 1) + row)
-                mask |= np.uint64(1) << bit
+                one = np.uint64(1)
+                mask |= one << bit
                 if cell == current_player:
-                    current |= np.uint64(1) << bit
+                    current |= one << bit
                 moves += 1
 
     return mask, current, moves
