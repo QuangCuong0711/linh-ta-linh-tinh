@@ -470,34 +470,16 @@ class TranspositionTable:
             del self.V
 
 def convert_to_bitboard(board: List[List[int]], current_player: int):
-    """
-    Chuyển đổi board dạng list hàng sang bitboard
-    Input:
-    - board: List 6 hàng, mỗi hàng 7 cột (0=trống, 1=player1, 2=player2)
-    - current_player: 1 hoặc 2
-    """
-    ROWS, COLS = 6, 7  # 6 hàng, 7 cột
+    ROWS, COLS = 6, 7
     mask = np.uint64(0)
     current = np.uint64(0)
     moves = 0
 
-    # Kiểm tra cấu trúc board
-    if len(board) != ROWS:
-        raise ValueError(f"Cần {ROWS} hàng, nhận được {len(board)} hàng")
-    
-    for row in range(ROWS):
-        if len(board[row]) != COLS:
-            raise ValueError(f"Hàng {row} cần {COLS} cột, nhận được {len(board[row])}")
-
-    # Duyệt theo cột (từ trái sang phải) và hàng (từ dưới lên)
     for col in range(COLS):
         for row in reversed(range(ROWS)):  # Hàng 0 là dưới cùng
-            cell = board[ROWS - 1 - row][col]  # Lấy giá trị từ board
-            if cell not in {0, 1, 2}:
-                raise ValueError(f"Giá trị không hợp lệ tại cột {col} hàng {row}: {cell}")
-            
+            cell = board[ROWS - 1 - row][col]
             if cell != 0:
-                bit = np.uint64(col * (ROWS + 1) + row)  # Công thức ánh xạ bit
+                bit = np.uint64(col * (ROWS + 1) + row)
                 mask |= np.uint64(1) << bit
                 if cell == current_player:
                     current |= np.uint64(1) << bit
@@ -573,10 +555,10 @@ async def make_move(game_state: GameState) -> AIResponse:
             raise ValueError("Danh sách nước đi hợp lệ không được trống")
 
         # Convert board
-        position.mask, position.current_position, position.moves = convert_to_bitboard(
-            game_state.board, 
-            game_state.current_player
-        )
+        mask, current, moves = convert_to_bitboard(game_state.board, game_state.current_player)
+        position.mask = np.uint64(mask)
+        position.current_position = np.uint64(current)
+        position.moves = moves
         
         # Get best move
         selected_move = best_move(position, game_state.valid_moves, solver)
