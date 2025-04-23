@@ -184,7 +184,7 @@ class Position:
         return ((np.uint64(1) << Position.HEIGHT) - 1) << col * (Position.HEIGHT + 1)
 
 class Solver:
-    def __init__(self, max_depth = 32):
+    def __init__(self, max_depth = 14):
         self.node_count = 0
         self.max_depth = max_depth  # Độ sâu tối đa (None = không giới hạn)
         self.column_order = [3, 2, 4, 1, 5, 0, 6]
@@ -588,7 +588,7 @@ def human_vs_ai():
         position.print_board()
         
         # Lượt người chơi
-        if position.nb_moves() % 2 != 0:
+        if position.nb_moves() % 2 == 0:
             print("Lượt của bạn (X), nhập cột (1-7):")
             try:
                 col = int(input()) - 1
