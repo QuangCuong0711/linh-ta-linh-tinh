@@ -463,8 +463,15 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
     current = np.uint64(0)
     moves = 0
 
+    # Thêm kiểm tra kích thước bảng
+    if len(board) != WIDTH or any(len(col) != HEIGHT for col in board):
+        raise ValueError("Kích thước bảng không hợp lệ, yêu cầu 7x6")
+
     for col in range(WIDTH):
         for row in range(HEIGHT):
+            if board[col][row] not in {0, 1, 2}:  # Kiểm tra giá trị hợp lệ
+                raise ValueError(f"Giá trị không hợp lệ tại ({col},{row}): {board[col][row]}")
+                
             if board[col][row] != 0:
                 bit = col * (HEIGHT + 1) + row
                 mask |= np.uint64(1) << np.uint64(bit)
@@ -475,39 +482,52 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
     return mask, current, moves
 
 def best_move(position: Position, valid_moves: List[int], solver: Solver):
+    if not valid_moves:
+        raise ValueError("Danh sách nước đi hợp lệ trống")
+
+    # Ưu tiên nước đi thắng ngay lập tức
+    for col in valid_moves:
+        if 0 <= col < Position.WIDTH and position.can_play(col) and position.is_winning_move(col):
+            return col
+
+    # Sắp xếp các cột theo thứ tự ưu tiên (trung tâm trước)
+    columns_to_check = sorted(valid_moves, key=lambda x: abs(x - Position.WIDTH//2))
+    
     best_col = None
     best_score = -float('inf')
 
-    for col in valid_moves:
-        if position.can_play(col) and position.is_winning_move(col):
-            return col
-
-    for x in range(Position.WIDTH):
-        col = solver.column_order[x]
-        if position.can_play(col):
-            P2 = Position(position)
-            P2.playCol(col)
+    for col in columns_to_check:
+        if not (0 <= col < Position.WIDTH):
+            continue  # Bỏ qua cột không hợp lệ
             
-            opponent_can_win = False
-            for y in range(Position.WIDTH):
-                if P2.can_play(y) and P2.is_winning_move(y):
-                    opponent_can_win = True
-                    break
-                    
-            if opponent_can_win:
-                continue
-                
-            score = -solver.solve(P2)
-            if score > best_score or best_col is None:
-                best_col = col
-                best_score = score
-    
-    if best_col is None:
-        for col in range(Position.WIDTH):
-            if position.can_play(col):
-                best_col = col
+        if not position.can_play(col):
+            continue
+            
+        P2 = Position(position)
+        P2.playCol(col)
+        
+        # Kiểm tra đối thủ có thể thắng ngay không
+        opponent_can_win = False
+        for y in range(Position.WIDTH):
+            if P2.can_play(y) and P2.is_winning_move(y):
+                opponent_can_win = True
                 break
-    return best_col
+                
+        if opponent_can_win:
+            continue
+            
+        score = -solver.solve(P2)
+        if score > best_score or best_col is None:
+            best_col = col
+            best_score = score
+    
+    # Nếu không tìm được nước tốt, chọn nước đi hợp lệ đầu tiên
+    if best_col is None and valid_moves:
+        for col in valid_moves:
+            if 0 <= col < Position.WIDTH and position.can_play(col):
+                return col
+                
+    return best_col if best_col is not None else random.choice(valid_moves)
 
 @app.get("/api/test")
 async def health_check():
@@ -524,7 +544,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         position.mask, position.current_position, position.moves = convert_to_bitboard(game_state.board, game_state.current_player)
          
         selected_move = best_move(position, game_state.valid_moves, solver)
-
+        print(selected_move)
         return AIResponse(move=selected_move)
     except Exception as e:
         print(f"Error: {str(e)}")
