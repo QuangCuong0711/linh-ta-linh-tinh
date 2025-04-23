@@ -76,7 +76,7 @@ class Position:
     MIN_SCORE = -(WIDTH*HEIGHT)//2 + 3
     MAX_SCORE = (WIDTH*HEIGHT+1)//2 - 3
     bottom_mask = bottom(WIDTH, HEIGHT)
-    board_mask = bottom_mask * ((np.uint64(1) << np.uint64(HEIGHT)) - np.uint64(1)
+    board_mask = bottom_mask * ((np.uint64(1) << np.uint64(HEIGHT)) - np.uint64(1))
 
     def __init__(self, other=None):
         if other:
