@@ -7,7 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 import math
 import time
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -72,7 +76,7 @@ class Position:
     MIN_SCORE = -(WIDTH*HEIGHT)//2 + 3
     MAX_SCORE = (WIDTH*HEIGHT+1)//2 - 3
     bottom_mask = bottom(WIDTH, HEIGHT)
-    board_mask = bottom_mask * ((np.uint64(1) << np.uint64(HEIGHT)) - np.uint64(1))
+    board_mask = bottom_mask * ((np.uint64(1) << np.uint64(HEIGHT)) - np.uint64(1)
 
     def __init__(self, other=None):
         if other:
@@ -141,12 +145,20 @@ class Position:
         return self.popcount(self.compute_winning_position(self.current_position | np.uint64(move), self.mask))
 
     def can_play(self, col):
+        if col < 0 or col >= self.WIDTH:
+            return False
         return (self.mask & self.top_mask_col(col)) == np.uint64(0)
     
     def playCol(self, col):
-        return self.play((self.mask + self.bottom_mask_col(col)) & self.column_mask(col))
+        if not self.can_play(col):
+            raise ValueError(f"Cannot play in column {col}")
+        move = (self.mask + self.bottom_mask_col(col)) & self.column_mask(col)
+        self.play(move)
+        return move
     
     def is_winning_move(self, col):
+        if col < 0 or col >= self.WIDTH:
+            return False
         return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
 
     def winning_position(self):
@@ -175,7 +187,7 @@ class Position:
         r |= p & (position << np.uint64(Position.HEIGHT+1))
         r |= p & (position >> np.uint64(3*(Position.HEIGHT+1)))
 
-        # Diagonal 1
+        # Diagonal 1 (\)
         p = (position << np.uint64(Position.HEIGHT)) & (position << np.uint64(2*Position.HEIGHT))
         r |= p & (position << np.uint64(3*Position.HEIGHT))
         r |= p & (position >> np.uint64(Position.HEIGHT))
@@ -183,7 +195,7 @@ class Position:
         r |= p & (position << np.uint64(Position.HEIGHT))
         r |= p & (position >> np.uint64(3*Position.HEIGHT))
 
-        # Diagonal 2
+        # Diagonal 2 (/)
         p = (position << np.uint64(Position.HEIGHT+2)) & (position << np.uint64(2*(Position.HEIGHT+2)))
         r |= p & (position << np.uint64(3*(Position.HEIGHT+2)))
         r |= p & (position >> np.uint64(Position.HEIGHT+2))
@@ -485,10 +497,10 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
                 raise ValueError(f"Giá trị không hợp lệ tại cột {col} hàng {row}: {cell}")
             
             if cell != 0:
-                bit = col * (ROWS + 1) + row  # Công thức ánh xạ bit
-                mask |= np.uint64(1) << np.uint64(bit)
+                bit = np.uint64(col * (ROWS + 1) + row)  # Công thức ánh xạ bit
+                mask |= np.uint64(1) << bit
                 if cell == current_player:
-                    current |= np.uint64(1) << np.uint64(bit)
+                    current |= np.uint64(1) << bit
                 moves += 1
 
     return mask, current, moves
@@ -550,19 +562,55 @@ async def make_move(game_state: GameState) -> AIResponse:
     position = Position()
     solver = Solver()
     try:
-        if not game_state.valid_moves:
-            raise ValueError("Không có nước đi hợp lệ")
+        # Validate input
+        if not isinstance(game_state.board, list) or len(game_state.board) != 6:
+            raise ValueError("Board phải là danh sách 6 hàng")
+        
+        if game_state.current_player not in {1, 2}:
+            raise ValueError("Người chơi hiện tại phải là 1 hoặc 2")
 
-        position.mask, position.current_position, position.moves = convert_to_bitboard(game_state.board, game_state.current_player)
-         
+        if not game_state.valid_moves:
+            raise ValueError("Danh sách nước đi hợp lệ không được trống")
+
+        # Convert board
+        position.mask, position.current_position, position.moves = convert_to_bitboard(
+            game_state.board, 
+            game_state.current_player
+        )
+        
+        # Get best move
         selected_move = best_move(position, game_state.valid_moves, solver)
-        print(selected_move)
+        logger.info(f"Selected move: {selected_move}")
+        
         return AIResponse(move=selected_move)
+
     except Exception as e:
-        print(f"Error: {str(e)}")
+        logger.error(f"Error processing move: {str(e)}")
+        logger.error(f"Input board: {game_state.board}")
+        logger.error(f"Current player: {game_state.current_player}")
+        logger.error(f"Valid moves: {game_state.valid_moves}")
+        
+        # Fallback: chọn ngẫu nhiên từ valid_moves nếu có
         if game_state.valid_moves:
             return AIResponse(move=random.choice(game_state.valid_moves))
-        raise HTTPException(status_code=400, detail=str(e))
+            
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": str(e),
+                "expected_format": {
+                    "board": "6 hàng (từ trên xuống), mỗi hàng 7 cột (trái sang phải)",
+                    "current_player": "1 hoặc 2",
+                    "valid_moves": "Danh sách các cột có thể chơi (0-6)"
+                },
+                "received": {
+                    "board_rows": len(game_state.board),
+                    "board_cols": len(game_state.board[0]) if game_state.board else 0,
+                    "current_player": game_state.current_player,
+                    "valid_moves": game_state.valid_moves
+                }
+            }
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
