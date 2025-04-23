@@ -458,24 +458,36 @@ class TranspositionTable:
             del self.V
 
 def convert_to_bitboard(board: List[List[int]], current_player: int):
-    WIDTH, HEIGHT = 7, 6
+    """
+    Chuyển đổi board dạng list hàng sang bitboard
+    Input:
+    - board: List 6 hàng, mỗi hàng 7 cột (0=trống, 1=player1, 2=player2)
+    - current_player: 1 hoặc 2
+    """
+    ROWS, COLS = 6, 7  # 6 hàng, 7 cột
     mask = np.uint64(0)
     current = np.uint64(0)
     moves = 0
 
-    # Thêm kiểm tra kích thước bảng
-    if len(board) != WIDTH or any(len(col) != HEIGHT for col in board):
-        raise ValueError("Kích thước bảng không hợp lệ, yêu cầu 7x6")
+    # Kiểm tra cấu trúc board
+    if len(board) != ROWS:
+        raise ValueError(f"Cần {ROWS} hàng, nhận được {len(board)} hàng")
+    
+    for row in range(ROWS):
+        if len(board[row]) != COLS:
+            raise ValueError(f"Hàng {row} cần {COLS} cột, nhận được {len(board[row])}")
 
-    for col in range(WIDTH):
-        for row in range(HEIGHT):
-            if board[col][row] not in {0, 1, 2}:  # Kiểm tra giá trị hợp lệ
-                raise ValueError(f"Giá trị không hợp lệ tại ({col},{row}): {board[col][row]}")
-                
-            if board[col][row] != 0:
-                bit = col * (HEIGHT + 1) + row
+    # Duyệt theo cột (từ trái sang phải) và hàng (từ dưới lên)
+    for col in range(COLS):
+        for row in reversed(range(ROWS)):  # Hàng 0 là dưới cùng
+            cell = board[ROWS - 1 - row][col]  # Lấy giá trị từ board
+            if cell not in {0, 1, 2}:
+                raise ValueError(f"Giá trị không hợp lệ tại cột {col} hàng {row}: {cell}")
+            
+            if cell != 0:
+                bit = col * (ROWS + 1) + row  # Công thức ánh xạ bit
                 mask |= np.uint64(1) << np.uint64(bit)
-                if board[col][row] == current_player:
+                if cell == current_player:
                     current |= np.uint64(1) << np.uint64(bit)
                 moves += 1
 
