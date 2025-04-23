@@ -8,7 +8,6 @@ import numpy as np
 import math
 import time
 
-
 app = FastAPI()
 
 app.add_middleware(
@@ -144,7 +143,8 @@ class Position:
         return (self.mask & self.top_mask_col(col)) == np.uint64(0)
     
     def playCol(self, col):
-        return self.play((self.mask + self.bottom_mask_col(col)) & self.column_mask(col))
+        move = (self.mask + self.bottom_mask_col(col)) & self.column_mask(col)
+        return self.play(np.uint64(move))
     
     def is_winning_move(self, col):
         return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
@@ -156,14 +156,17 @@ class Position:
         return self.compute_winning_position(self.current_position ^ self.mask, self.mask)
 
     def possible(self):
-        return (self.mask + self.bottom_mask) & self.board_mask
+        return np.uint64(self.mask + self.bottom_mask) & self.board_mask
 
     @staticmethod
     def popcount(x):
-        return bin(x).count('1')
+        return bin(int(x)).count('1')
 
     @staticmethod
     def compute_winning_position(position, mask):
+        position = np.uint64(position)
+        mask = np.uint64(mask)
+        
         # Vertical
         r = (position << np.uint64(1)) & (position << np.uint64(2)) & (position << np.uint64(3))
 
@@ -334,7 +337,7 @@ class Solver:
                 break
 
             P2 = Position(P)
-            P2.play(next_move)
+            P2.play(np.uint64(next_move))
             score = -self.negamax(P2, -beta, -alpha, depth + 1)
 
             if score >= beta:
@@ -463,11 +466,10 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
     mask = np.uint64(0)
     moves = 0
 
-    # Duyệt theo hàng (từ dưới lên)
-    for row in reversed(range(HEIGHT)):  # Hàng 5 là dưới cùng
+    for row in reversed(range(HEIGHT)):
         for col in range(WIDTH):
-            if board[row][col] != 0:  # Truy cập [hàng][cột]
-                bit = col * (HEIGHT + 1) + (HEIGHT - 1 - row)  # Tính bit chính xác
+            if board[row][col] != 0:
+                bit = col * (HEIGHT + 1) + (HEIGHT - 1 - row)
                 mask |= np.uint64(1) << np.uint64(bit)
                 if board[row][col] == current_player:
                     position |= np.uint64(1) << np.uint64(bit)
@@ -522,7 +524,9 @@ async def make_move(game_state: GameState) -> AIResponse:
         if not game_state.valid_moves:
             raise ValueError("Không có nước đi hợp lệ")
 
-        position.mask, position.current_position, position.moves = convert_to_bitboard(game_state.board, game_state.current_player)
+        position.mask, position.current_position, position.moves = convert_to_bitboard(
+            game_state.board, game_state.current_player
+        )
          
         selected_move = best_move(position, game_state.valid_moves, solver)
 
