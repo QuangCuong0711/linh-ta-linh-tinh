@@ -37,31 +37,31 @@ class MoveSorter:
     def __init__(self):
         self.size = 0
         self.entries = np.zeros(Position.WIDTH, dtype=[('move', 'u8'), ('score', 'i4')])
-    
+
     def add(self, move: int, score: int) -> None:
         if self.size >= len(self.entries):
             return
-            
+
         pos = self.size
         while pos > 0 and self.entries[pos-1]['score'] > score:
             if pos < len(self.entries):
                 self.entries[pos] = self.entries[pos-1]
             pos -= 1
-        
+
         if pos < len(self.entries):
             self.entries[pos]['move'] = move
             self.entries[pos]['score'] = score
         self.size += 1
-    
+
     def get_next(self) -> int:
         if self.size > 0:
             self.size -= 1
             return int(self.entries[self.size]['move'])
         return 0
-    
+
     def reset(self) -> None:
         self.size = 0
-    
+
     def __len__(self) -> int:
         return self.size
 
@@ -110,7 +110,7 @@ class Position:
 
     def print_board(self):
         board = [['.' for _ in range(self.WIDTH)] for _ in range(self.HEIGHT)]
-        
+
         for y in range(self.HEIGHT):
             for x in range(self.WIDTH):
                 pos = x * (self.HEIGHT + 1) + y
@@ -119,7 +119,7 @@ class Position:
                         board[self.HEIGHT - 1 - y][x] = 'X'
                     else:
                         board[self.HEIGHT - 1 - y][x] = 'O'
-        
+
         print("  " + " ".join(str(i+1) for i in range(self.WIDTH)))
         for row in board:
             print("|" + " ".join(row) + "|")
@@ -135,17 +135,17 @@ class Position:
             else:
                 possible_mask = forced_moves
         return possible_mask & ~(opponent_win >> np.uint64(1))
-    
+
     def moveScore(self, move):
         return self.popcount(self.compute_winning_position(self.current_position | np.uint64(move), self.mask))
 
     def can_play(self, col):
         return (self.mask & self.top_mask_col(col)) == np.uint64(0)
-    
+
     def playCol(self, col):
         move = (self.mask + self.bottom_mask_col(col)) & self.column_mask(col)
         return self.play(np.uint64(move))
-    
+
     def is_winning_move(self, col):
         return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
 
@@ -166,7 +166,7 @@ class Position:
     def compute_winning_position(position, mask):
         position = np.uint64(position)
         mask = np.uint64(mask)
-        
+
         # Vertical
         r = (position << np.uint64(1)) & (position << np.uint64(2)) & (position << np.uint64(3))
 
@@ -208,33 +208,31 @@ class Position:
     def column_mask(col):
         if col is None:
             raise ValueError("col is None in column_mask()")
-        print(f"column_mask called with col = {col} (type={type(col)})")
 
         height = np.uint64(Position.HEIGHT)
         col = np.uint64(col)
 
-        # 1 << HEIGHT thành np.uint64, rồi trừ 1 để được mặt nạ dọc, rồi dịch trái
         return ((np.uint64(1) << height) - np.uint64(1)) << (col * (height + np.uint64(1)))
-    
+
 class Solver:
     def __init__(self, max_depth=14):
         self.node_count = 0
         self.max_depth = max_depth
         self.column_order = [3, 2, 4, 1, 5, 0, 6]
-        self.transposition_table = TranspositionTable(Position.WIDTH*(Position.HEIGHT + 1), 
-                                                    self.log2(Position.MAX_SCORE - Position.MIN_SCORE + 1) + 1, 23)
+        self.transposition_table = TranspositionTable(Position.WIDTH*(Position.HEIGHT + 1),
+                                                     self.log2(Position.MAX_SCORE - Position.MIN_SCORE + 1) + 1, 23)
 
     def log2(self, n):
         if n <= 1:
             return 0
         return int(np.log2(n/2) + 1)
-    
+
     def evaluate(self, position):
         if position.is_winning_move(0):
             for col in range(Position.WIDTH):
                 if position.is_winning_move(col):
                     return float('inf') if position.nb_moves() % 2 == 1 else float('-inf')
-        
+
         def count_potential_fours(pos, mask):
             count = 0
             for y in range(Position.HEIGHT):
@@ -247,7 +245,7 @@ class Solver:
                             break
                     if window != -1:
                         count += 1
-            
+
             for x in range(Position.WIDTH):
                 for y in range(Position.HEIGHT - 3):
                     window = 0
@@ -258,7 +256,7 @@ class Solver:
                             break
                     if window != -1:
                         count += 1
-            
+
             for x in range(Position.WIDTH - 3):
                 for y in range(Position.HEIGHT - 3):
                     window = 0
@@ -269,7 +267,7 @@ class Solver:
                             break
                     if window != -1:
                         count += 1
-            
+
             for x in range(Position.WIDTH - 3):
                 for y in range(3, Position.HEIGHT):
                     window = 0
@@ -280,15 +278,15 @@ class Solver:
                             break
                     if window != -1:
                         count += 1
-            
+
             return count
-        
+
         current_player = position.current_position ^ position.mask
         opponent = position.current_position
-        
+
         current_potential = count_potential_fours(current_player, position.mask)
         opponent_potential = count_potential_fours(opponent, position.mask)
-        
+
         return current_potential - opponent_potential
 
     def negamax(self, P, alpha, beta, depth=0):
@@ -370,7 +368,7 @@ class Solver:
         elif value_to_store < 0:
             value_to_store = 0
         self.transposition_table.put(key, value_to_store)
-        
+
         return best_score
 
     def solve(self, P):
@@ -425,10 +423,10 @@ class TranspositionTable:
         self.value_size = value_size
         self.log_size = log_size
         self.size = next_prime(1 << log_size)
-        
+
         self.key_t = self._get_uint_type(key_size - log_size)
         self.value_t = self._get_uint_type(value_size)
-        
+
         self.K = np.zeros(self.size, dtype=self.key_t)
         self.V = np.zeros(self.size, dtype=self.value_t)
 
@@ -451,14 +449,14 @@ class TranspositionTable:
     def put(self, key: int, value: int) -> None:
         assert key >> self.key_size == 0
         assert value >> self.value_size == 0
-        
+
         pos = self.index(key)
         self.K[pos] = key
         self.V[pos] = value
 
     def get(self, key: int) -> int:
         assert key >> self.key_size == 0
-        
+
         pos = self.index(key)
         return int(self.V[pos]) if self.K[pos] == (self.key_t)(key) else 0
 
@@ -498,21 +496,21 @@ def best_move(position: Position, valid_moves: List[int], solver: Solver):
         if position.can_play(col):
             P2 = Position(position)
             P2.playCol(col)
-            
+
             opponent_can_win = False
             for y in range(Position.WIDTH):
                 if P2.can_play(y) and P2.is_winning_move(y):
                     opponent_can_win = True
                     break
-                    
+
             if opponent_can_win:
                 continue
-                
+
             score = -solver.solve(P2)
             if score > best_score or best_col is None:
                 best_col = col
                 best_score = score
-    
+
     if best_col is None:
         for col in range(Position.WIDTH):
             if position.can_play(col):
@@ -535,15 +533,16 @@ async def make_move(game_state: GameState) -> AIResponse:
         position.mask, position.current_position, position.moves = convert_to_bitboard(
             game_state.board, game_state.current_player
         )
-        print(game_state.board)
-        print(game_state.current_player)
-        position.print_board() 
+        print(f"Bảng hiện tại:\n{game_state.board}")
+        print(f"Người chơi hiện tại: {game_state.current_player}")
+        position.print_board()
 
         selected_move = best_move(position, game_state.valid_moves, solver)
+        print(f"Nước đi được chọn: {selected_move + 1}") # +1 để hiển thị theo cột 1-7
 
         return AIResponse(move=selected_move)
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Lỗi: {str(e)}")
         if game_state.valid_moves:
             return AIResponse(move=random.choice(game_state.valid_moves))
         raise HTTPException(status_code=400, detail=str(e))
