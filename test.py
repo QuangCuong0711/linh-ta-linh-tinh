@@ -6,13 +6,15 @@ def bottom(width, height):
     for w in range(width):
         mask |= np.uint64(1) << (height + 1) * w
     return mask
+
+
 class Position:
-    WIDTH = 7  # width of the board5
-    HEIGHT = 6  # height of the board
+    WIDTH = 7
+    HEIGHT = 6
     MIN_SCORE = -(WIDTH*HEIGHT)//2 + 3
     MAX_SCORE = (WIDTH*HEIGHT+1)//2 - 3
-    bottom_mask = bottom(WIDTH, HEIGHT)  # bottom mask for the board
-    board_mask = bottom_mask * ((np.uint64(1) << HEIGHT)-1)  # board mask for the board
+    bottom_mask = bottom(WIDTH, HEIGHT)
+    board_mask = bottom_mask * ((np.uint64(1) << np.uint64(HEIGHT)) - np.uint64(1))
 
     def __init__(self, other=None):
         if other:
@@ -26,7 +28,7 @@ class Position:
 
     def play(self, move):
         self.current_position ^= self.mask
-        self.mask |= move
+        self.mask |= np.uint64(move)
         self.moves += 1
 
     def play_sequence(self, seq):
@@ -38,32 +40,29 @@ class Position:
         return len(seq)
 
     def canWinNext(self):
-        return self.winning_position() & self.possible() != 0
+        return (self.winning_position() & self.possible()) != np.uint64(0)
 
     def nb_moves(self):
         return self.moves
 
     def key(self):
-        return self.current_position + self.mask
+        return np.uint64(self.current_position + self.mask)
 
     def switch_player(self):
         self.current_position ^= self.mask
 
     def print_board(self):
-        """Hiển thị bàn cờ dạng ASCII"""
         board = [['.' for _ in range(self.WIDTH)] for _ in range(self.HEIGHT)]
         
-        # Lấy các quân cờ từ bitboard
         for y in range(self.HEIGHT):
             for x in range(self.WIDTH):
                 pos = x * (self.HEIGHT + 1) + y
-                if (self.mask >> pos) & 1:
-                    if (self.current_position >> pos) & 1:
-                        board[self.HEIGHT - 1 - y][x] = 'X'  # Người chơi hiện tại
+                if (self.mask >> np.uint64(pos)) & np.uint64(1):
+                    if (self.current_position >> np.uint64(pos)) & np.uint64(1):
+                        board[self.HEIGHT - 1 - y][x] = 'X'
                     else:
-                        board[self.HEIGHT - 1 - y][x] = 'O'  # Đối thủ
+                        board[self.HEIGHT - 1 - y][x] = 'O'
         
-        # In bàn cờ
         print("  " + " ".join(str(i+1) for i in range(self.WIDTH)))
         for row in board:
             print("|" + " ".join(row) + "|")
@@ -71,82 +70,89 @@ class Position:
 
     def possible_Non_Losing_Moves(self):
         possible_mask = self.possible()
-        oppoment_win = self.oppoment_winning_position()
-        forced_moves = possible_mask & oppoment_win
-        if forced_moves != 0:
-            if forced_moves & (forced_moves -1) != 0:
-                return 0
+        opponent_win = self.opponent_winning_position()
+        forced_moves = possible_mask & opponent_win
+        if forced_moves != np.uint64(0):
+            if forced_moves & (forced_moves - np.uint64(1)) != np.uint64(0):
+                return np.uint64(0)
             else:
                 possible_mask = forced_moves
-        return possible_mask & ~(oppoment_win >> 1)
+        return possible_mask & ~(opponent_win >> np.uint64(1))
     
     def moveScore(self, move):
-        return self.popcount(self.compute_winning_position(self.current_position | move, self.mask))
+        return self.popcount(self.compute_winning_position(self.current_position | np.uint64(move), self.mask))
 
     def can_play(self, col):
-        return (self.mask & self.top_mask_col(col)) == 0
+        return (self.mask & self.top_mask_col(col)) == np.uint64(0)
     
     def playCol(self, col):
-        return self.play((self.mask + self.bottom_mask_col(col)) & self.column_mask(col))
+        move = (self.mask + self.bottom_mask_col(col)) & self.column_mask(col)
+        return self.play(np.uint64(move))
     
     def is_winning_move(self, col):
-        return self.winning_position() & self.possible() & self.column_mask(col) != 0
+        return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
 
     def winning_position(self):
-        return Position.compute_winning_position(self.current_position, self.mask)
+        return self.compute_winning_position(self.current_position, self.mask)
 
-    def oppoment_winning_position(self):
+    def opponent_winning_position(self):
         return self.compute_winning_position(self.current_position ^ self.mask, self.mask)
 
     def possible(self):
-        """Trả về danh sách các cột có thể chơi"""
-        return (self.mask +Position.bottom_mask) & Position.board_mask
+        return np.uint64(self.mask + self.bottom_mask) & self.board_mask
 
     @staticmethod
     def popcount(x):
-        return bin(x).count('1')
+        return bin(int(x)).count('1')
 
     @staticmethod
     def compute_winning_position(position, mask):
+        position = np.uint64(position)
+        mask = np.uint64(mask)
+        
         # Vertical
-        r = (position << 1) & (position << 2) & (position << 3)
+        r = (position << np.uint64(1)) & (position << np.uint64(2)) & (position << np.uint64(3))
 
-        #Horizontal
-        p = (position << (Position.HEIGHT+1)) & (position << 2*(Position.HEIGHT+1))
-        r |= p & (position << 3*(Position.HEIGHT+1))
-        r |= p & (position >> (Position.HEIGHT+1))
-        p = (position >> (Position.HEIGHT+1)) & (position >> 2*(Position.HEIGHT+1))
-        r |= p & (position << (Position.HEIGHT+1))
-        r |= p & (position >> 3*(Position.HEIGHT+1))
+        # Horizontal
+        p = (position << np.uint64(Position.HEIGHT+1)) & (position << np.uint64(2*(Position.HEIGHT+1)))
+        r |= p & (position << np.uint64(3*(Position.HEIGHT+1)))
+        r |= p & (position >> np.uint64(Position.HEIGHT+1))
+        p = (position >> np.uint64(Position.HEIGHT+1)) & (position >> np.uint64(2*(Position.HEIGHT+1)))
+        r |= p & (position << np.uint64(Position.HEIGHT+1))
+        r |= p & (position >> np.uint64(3*(Position.HEIGHT+1)))
 
-        #Diagonal 1
-        p = (position << Position.HEIGHT) & (position << 2*Position.HEIGHT)
-        r |= p & (position << 3*Position.HEIGHT)
-        r |= p & (position >> Position.HEIGHT)
-        p = (position >> Position.HEIGHT) & (position >> 2*Position.HEIGHT)
-        r |= p & (position << Position.HEIGHT)
-        r |= p & (position >> 3*Position.HEIGHT)
+        # Diagonal 1
+        p = (position << np.uint64(Position.HEIGHT)) & (position << np.uint64(2*Position.HEIGHT))
+        r |= p & (position << np.uint64(3*Position.HEIGHT))
+        r |= p & (position >> np.uint64(Position.HEIGHT))
+        p = (position >> np.uint64(Position.HEIGHT)) & (position >> np.uint64(2*Position.HEIGHT))
+        r |= p & (position << np.uint64(Position.HEIGHT))
+        r |= p & (position >> np.uint64(3*Position.HEIGHT))
 
-        #Diagonal 2
-        p = (position << (Position.HEIGHT+2)) & (position << 2*(Position.HEIGHT+2))
-        r |= p & (position << 3*(Position.HEIGHT+2))
-        r |= p & (position >> (Position.HEIGHT+2))
-        p = (position >> (Position.HEIGHT+2)) & (position >> 2*(Position.HEIGHT+2))
-        r |= p & (position << (Position.HEIGHT+2))
-        r |= p & (position >> 3*(Position.HEIGHT+2))
+        # Diagonal 2
+        p = (position << np.uint64(Position.HEIGHT+2)) & (position << np.uint64(2*(Position.HEIGHT+2)))
+        r |= p & (position << np.uint64(3*(Position.HEIGHT+2)))
+        r |= p & (position >> np.uint64(Position.HEIGHT+2))
+        p = (position >> np.uint64(Position.HEIGHT+2)) & (position >> np.uint64(2*(Position.HEIGHT+2)))
+        r |= p & (position << np.uint64(Position.HEIGHT+2))
+        r |= p & (position >> np.uint64(3*(Position.HEIGHT+2)))
 
         return r & (Position.board_mask ^ mask)
+
     @staticmethod
     def top_mask_col(col):
-        return np.uint64(1) << (Position.HEIGHT - 1) << col * (Position.HEIGHT + 1)
+        return np.uint64(1) << np.uint64(Position.HEIGHT - 1) << np.uint64(col * (Position.HEIGHT + 1))
 
     @staticmethod
     def bottom_mask_col(col):
-        return np.uint64(1) << col * (Position.HEIGHT + 1)
+        return np.uint64(1) << np.uint64(col * (Position.HEIGHT + 1))
 
     @staticmethod
     def column_mask(col):
-        return ((np.uint64(1) << Position.HEIGHT) - 1) << col * (Position.HEIGHT + 1)
+        if col is None:
+            raise ValueError("col is None in column_mask()")
+        print(f"column_mask called with col = {col} (type={type(col)})")
+        return ((np.uint64(1) << np.uint64(Position.HEIGHT)) - np.uint64(1)) << np.uint64(col * (Position.HEIGHT + 1))
 
 def convert_to_bitboard(board: List[List[int]], current_player: int):
     WIDTH, HEIGHT = 7, 6
@@ -175,7 +181,7 @@ def main():
         [0, 0, 0, 1, 2, 0, 0],
         [1, 0, 1, 2, 2, 1, 1]
     ]
-    position.current_position, position.mask, position.moves = convert_to_bitboard(empty_board,1)
+    position.current_position, position.mask, position.moves = convert_to_bitboard(empty_board,2)
     position.print_board()
 
 if __name__ == "__main__":

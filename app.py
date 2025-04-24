@@ -530,7 +530,8 @@ async def make_move(game_state: GameState) -> AIResponse:
         position.mask, position.current_position, position.moves = convert_to_bitboard(
             game_state.board, game_state.current_player
         )
-         
+        print(game_state.board)
+        print(game_state.current_player)
         position.print_board() 
 
         selected_move = best_move(position, game_state.valid_moves, solver)
