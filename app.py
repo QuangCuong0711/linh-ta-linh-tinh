@@ -209,7 +209,8 @@ class Position:
         if col is None:
             raise ValueError("col is None in column_mask()")
         print(f"column_mask called with col = {col} (type={type(col)})")
-
+        return ((np.uint64(1) << np.uint64(Position.HEIGHT)) - np.uint64(1)) << np.uint64(col * (Position.HEIGHT + 1))
+    
 class Solver:
     def __init__(self, max_depth=14):
         self.node_count = 0
