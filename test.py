@@ -152,7 +152,12 @@ class Position:
         if col is None:
             raise ValueError("col is None in column_mask()")
         print(f"column_mask called with col = {col} (type={type(col)})")
-        return ((np.uint64(1) << np.uint64(Position.HEIGHT)) - np.uint64(1)) << np.uint64(col * (Position.HEIGHT + 1))
+
+        height = np.uint64(Position.HEIGHT)
+        col = np.uint64(col)
+
+        # 1 << HEIGHT thành np.uint64, rồi trừ 1 để được mặt nạ dọc, rồi dịch trái
+        return ((np.uint64(1) << height) - np.uint64(1)) << (col * (height + np.uint64(1)))
 
 def convert_to_bitboard(board: List[List[int]], current_player: int):
     WIDTH, HEIGHT = 7, 6
