@@ -206,7 +206,9 @@ class Position:
 
     @staticmethod
     def column_mask(col):
-        return ((np.uint64(1) << np.uint64(Position.HEIGHT)) - np.uint64(1)) << np.uint64(col * (Position.HEIGHT + 1))
+        if col is None:
+            raise ValueError("col is None in column_mask()")
+        print(f"column_mask called with col = {col} (type={type(col)})")
 
 class Solver:
     def __init__(self, max_depth=14):
@@ -528,6 +530,8 @@ async def make_move(game_state: GameState) -> AIResponse:
             game_state.board, game_state.current_player
         )
          
+        position.print_board() 
+
         selected_move = best_move(position, game_state.valid_moves, solver)
 
         return AIResponse(move=selected_move)
