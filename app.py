@@ -129,11 +129,12 @@ class Position:
         possible_mask = self.possible()
         opponent_win = self.opponent_winning_position()
         forced_moves = possible_mask & opponent_win
+        
         if forced_moves != np.uint64(0):
             if forced_moves & (forced_moves - np.uint64(1)) != np.uint64(0):
                 return np.uint64(0)
-            else:
-                possible_mask = forced_moves
+            possible_mask = forced_moves
+        
         return possible_mask & ~(opponent_win >> np.uint64(1))
 
     def moveScore(self, move):
@@ -144,7 +145,8 @@ class Position:
 
     def playCol(self, col):
         move = (self.mask + self.bottom_mask_col(col)) & self.column_mask(col)
-        return self.play(np.uint64(move))
+        self.play(np.uint64(move))
+        return move
 
     def is_winning_move(self, col):
         return (self.winning_position() & self.possible() & self.column_mask(col)) != np.uint64(0)
@@ -156,7 +158,7 @@ class Position:
         return self.compute_winning_position(self.current_position ^ self.mask, self.mask)
 
     def possible(self):
-        return np.uint64(self.mask + self.bottom_mask) & self.board_mask
+        return (self.mask + self.bottom_mask) & self.board_mask
 
     @staticmethod
     def popcount(x):
@@ -164,15 +166,11 @@ class Position:
 
     @staticmethod
     def compute_winning_position(position, mask):
-        position = np.uint64(position)
-        mask = np.uint64(mask)
-
         # Vertical
         r = (position << np.uint64(1)) & (position << np.uint64(2)) & (position << np.uint64(3))
 
         # Horizontal
         p = (position << np.uint64(Position.HEIGHT+1)) & (position << np.uint64(2*(Position.HEIGHT+1)))
-        r |= p & (position << np.uint64(3*(Position.HEIGHT+1)))
         r |= p & (position >> np.uint64(Position.HEIGHT+1))
         p = (position >> np.uint64(Position.HEIGHT+1)) & (position >> np.uint64(2*(Position.HEIGHT+1)))
         r |= p & (position << np.uint64(Position.HEIGHT+1))
@@ -206,13 +204,7 @@ class Position:
 
     @staticmethod
     def column_mask(col):
-        if col is None:
-            raise ValueError("col is None in column_mask()")
-
-        height = np.uint64(Position.HEIGHT)
-        col = np.uint64(col)
-
-        return ((np.uint64(1) << height) - np.uint64(1)) << (col * (height + np.uint64(1)))
+        return ((np.uint64(1) << np.uint64(Position.HEIGHT)) - np.uint64(1)) << np.uint64(col * (Position.HEIGHT + 1))
 
 class Solver:
     def __init__(self, max_depth=14):
@@ -530,7 +522,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         if not game_state.valid_moves:
             raise ValueError("Không có nước đi hợp lệ")
 
-        position.mask, position.current_position, position.moves = convert_to_bitboard(
+        position.current_position, position.mask, position.moves = convert_to_bitboard(
             game_state.board, game_state.current_player
         )
         print(f"Bảng hiện tại:\n{game_state.board}")
@@ -538,7 +530,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         position.print_board()
 
         selected_move = best_move(position, game_state.valid_moves, solver)
-        print(f"Nước đi được chọn: {selected_move + 1}") # +1 để hiển thị theo cột 1-7
+        print(f"Nước đi được chọn: {selected_move + 1}")
 
         return AIResponse(move=selected_move)
     except Exception as e:
