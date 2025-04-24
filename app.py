@@ -103,7 +103,7 @@ class Position:
         return self.moves
 
     def key(self):
-        return self.current_position + self.mask
+        return np.uint64(self.current_position + self.mask)
 
     def switch_player(self):
         self.current_position ^= self.mask

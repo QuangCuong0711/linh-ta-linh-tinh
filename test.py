@@ -154,11 +154,10 @@ def convert_to_bitboard(board: List[List[int]], current_player: int):
     mask = np.uint64(0)
     moves = 0
 
-    # Duyệt theo hàng (từ dưới lên)
-    for row in reversed(range(HEIGHT)):  # Hàng 5 là dưới cùng
+    for row in reversed(range(HEIGHT)):
         for col in range(WIDTH):
-            if board[row][col] != 0:  # Truy cập [hàng][cột]
-                bit = col * (HEIGHT + 1) + (HEIGHT - 1 - row)  # Tính bit chính xác
+            if board[row][col] != 0:
+                bit = col * (HEIGHT + 1) + (HEIGHT - 1 - row)
                 mask |= np.uint64(1) << np.uint64(bit)
                 if board[row][col] == current_player:
                     position |= np.uint64(1) << np.uint64(bit)
